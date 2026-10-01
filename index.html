@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tieto Banktech: agent widget</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --primary:#021E57;      /* Tieto navy */
+    --primary-2:#0A2E7A;
+    --secondary:#3531CF;    /* Tieto vivid blue */
+    --accent:#F5FF56;       /* Tieto lime-yellow — used sparingly, selected/current states only */
+    --paper:#FCFAF7;
+    --surface:#FFFFFF;
+    --hairline:#E4E1DA;
+    --ink:#0F1524;
+    --ink-2:#4A5164;
+    --ink-3:#8A8F9C;
+    --ok:#1C8A5A;
+    --ok-bg:#E7F5EE;
+    --warn:#B4380D;
+    --warn-bg:#FCE9E2;
+    --focus:#021E57;
+  }
+
+  .widget, .widget *{ box-sizing:border-box; }
+  .widget{
+    width:800px;
+    font-family:'Inter',sans-serif;
+    font-size:16px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .widget mono, .widget .mono{ font-family:'JetBrains Mono',monospace; }
+
+  /* Top bar */
+  .topbar{
+    height:44px;
+    background:var(--primary);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 16px;
+  }
+  .topbar .brand{
+    font-weight:700;
+    letter-spacing:0.01em;
+    font-size:15px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    text-transform:lowercase;
+  }
+  .topbar .brand .dot{ width:6px;height:6px;border-radius:50%;background:var(--accent); }
+  .topbar .meta{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    color:#C8D0E8;
+  }
+
+  /* Layout */
+  .body{
+    display:grid;
+    grid-template-columns:250px 1fr;
+    gap:0;
+  }
+  .rail{
+    background:var(--surface);
+    border-right:1px solid var(--hairline);
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .main{
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    min-width:0;
+  }
+
+  .chip-source{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--ink-3);
+    display:flex;
+    align-items:center;
+    gap:5px;
+    margin-bottom:6px;
+  }
+  .chip-source .pip{ color:var(--secondary); font-size:13px; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--hairline);
+    border-radius:8px;
+    padding:14px;
+  }
+
+  /* Customer card */
+  .avatar{
+    width:44px;height:44px;border-radius:50%;
+    background:var(--primary);
+    color:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px;
+    flex:none;
+  }
+  .cust-head{ display:flex; gap:10px; align-items:center; margin-bottom:10px; }
+  .cust-name{ font-size:22px; font-weight:700; line-height:1.15; }
+  .cust-sub{ font-size:13px; color:var(--ink-2); }
+  .verify{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:12px; font-weight:600;
+    color:var(--ok); background:var(--ok-bg);
+    border-radius:20px; padding:3px 9px; margin-top:8px;
+  }
+  .verify .dot{ width:6px;height:6px;border-radius:50%; background:var(--ok); }
+
+  .kv{ display:flex; flex-direction:column; gap:8px; font-size:13.5px; }
+  .kv .row{ display:flex; justify-content:space-between; gap:8px; }
+  .kv .row .k{ color:var(--ink-3); }
+  .kv .row .v{ font-family:'JetBrains Mono',monospace; font-size:13px; text-align:right; }
+
+  .rail hr{ border:none; border-top:1px solid var(--hairline); margin:2px 0; }
+
+  /* Tabs */
+  .tabs{ display:flex; gap:2px; border-bottom:1px solid var(--hairline); }
+  .tab{
+    appearance:none; border:none; background:none; cursor:pointer;
+    font-family:'Inter',sans-serif; font-size:14.5px; font-weight:600;
+    color:var(--ink-3);
+    padding:9px 4px 10px;
+    margin-right:18px;
+    border-bottom:3px solid transparent;
+  }
+  .tab[aria-selected="true"]{
+    color:var(--primary);
+    border-bottom-color:var(--accent);
+  }
+  .tab:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+
+  .panel{ display:none; flex-direction:column; gap:12px; }
+  .panel.active{ display:flex; }
+
+  .section-title{ font-size:13px; font-weight:700; color:var(--ink-2); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; }
+
+  /* Signature: card lifecycle timeline */
+  .timeline{
+    display:flex; align-items:center; gap:0; padding:14px 6px 6px;
+  }
+  .tl-step{ display:flex; flex-direction:column; align-items:center; flex:1; position:relative; }
+  .tl-dot{ width:14px;height:14px;border-radius:50%; background:var(--hairline); border:2px solid var(--surface); box-shadow:0 0 0 1px var(--hairline); z-index:1; }
+  .tl-step.done .tl-dot{ background:var(--secondary); box-shadow:0 0 0 1px var(--secondary); }
+  .tl-step.current .tl-dot{ background:var(--accent); box-shadow:0 0 0 3px rgba(245,255,86,0.45); }
+  .tl-line{ position:absolute; top:6px; left:-50%; width:100%; height:2px; background:var(--hairline); z-index:0; }
+  .tl-step.done .tl-line, .tl-step.current .tl-line{ background:var(--secondary); }
+  .tl-step:first-child .tl-line{ display:none; }
+  .tl-label{ font-size:11.5px; color:var(--ink-2); margin-top:8px; text-align:center; }
+  .tl-date{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-3); margin-top:2px; }
+  .tl-flag{
+    position:absolute; top:-20px; right:8%;
+    background:var(--warn-bg); color:var(--warn);
+    font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:10px;
+    white-space:nowrap;
+  }
+
+  .status-row{ display:flex; align-items:center; justify-content:space-between; }
+  .status-badge{
+    font-size:12.5px; font-weight:700; padding:4px 10px; border-radius:20px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .status-badge.active{ background:var(--ok-bg); color:var(--ok); }
+  .status-badge.frozen{ background:var(--warn-bg); color:var(--warn); }
+  .status-badge .dot{ width:6px;height:6px;border-radius:50%; background:currentColor; }
+
+  .btn{
+    appearance:none; border:1px solid var(--hairline); background:var(--surface);
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px;
+    padding:7px 12px; border-radius:6px; cursor:pointer; color:var(--ink);
+  }
+  .btn:hover{ border-color:var(--ink-3); }
+  .btn:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+  .btn.primary{ background:var(--primary); border-color:var(--primary); color:#fff; }
+  .btn.warn{ background:var(--warn); border-color:var(--warn); color:#fff; }
+  .btn[disabled]{ opacity:0.55; cursor:default; }
+
+  table.tx{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.tx th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-3); font-weight:600; padding:0 6px 6px; border-bottom:1px solid var(--hairline); }
+  table.tx td{ padding:8px 6px; border-bottom:1px solid var(--hairline); vertical-align:middle; }
+  table.tx tr:last-child td{ border-bottom:none; }
+  table.tx td.amt{ font-family:'JetBrains Mono',monospace; text-align:right; }
+  .tx-flag{ display:inline-flex; align-items:center; gap:5px; background:var(--warn-bg); color:var(--warn); font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; margin-left:6px; }
+
+  .limits{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .limit-box{ background:var(--paper); border:1px solid var(--hairline); border-radius:6px; padding:10px 12px; }
+  .limit-box .l{ font-size:11.5px; color:var(--ink-3); }
+  .limit-box .n{ font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:700; margin-top:2px; }
+
+  .id-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--hairline); }
+  .id-row:last-child{ border-bottom:none; }
+  .id-row .l{ font-size:13.5px; color:var(--ink-2); }
+  .id-row .v{ font-family:'JetBrains Mono',monospace; font-size:13px; }
+
+  /* NBA footer */
+  .nba{
+    background:var(--surface);
+    border-top:1px solid var(--hairline);
+    padding:12px 16px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .nba .flag-icon{
+    width:30px;height:30px;border-radius:8px;flex:none;
+    background:var(--warn-bg); color:var(--warn);
+    display:flex;align-items:center;justify-content:center;font-weight:700;
+  }
+  .nba .txt{ flex:1; font-size:13.5px; color:var(--ink); }
+  .nba .txt b{ font-weight:700; }
+  .nba .actions{ display:flex; gap:8px; flex:none; }
+  .nba .dismiss{ background:none;border:none;color:var(--ink-3);font-size:13px;cursor:pointer;padding:6px; }
+  .nba.resolved{ background:var(--ok-bg); }
+  .nba.resolved .flag-icon{ background:#fff; color:var(--ok); }
+
+  [data-mode] .demo-tag{ display:none; }
+  body[data-demo-visible] .demo-tag{ display:inline; }
+
+  @media (prefers-reduced-motion: no-preference){
+    .panel.active{ animation:fadein .12s ease-out; }
+  }
+  @keyframes fadein{ from{opacity:0} to{opacity:1} }
+</style>
+</head>
+<body>
+
+<div class="widget" aria-label="Tieto Banktech card servicing widget" data-mode="boot">
+
+  <div class="topbar">
+    <span class="brand"><span class="dot"></span>tieto banktech</span>
+    <span class="meta" id="topbarRef">CARD REF &mdash;</span>
+  </div>
+
+  <div class="body">
+    <aside class="rail" aria-label="Customer and card summary">
+      <div>
+        <div class="chip-source"><span class="pip">•••</span> Evry Card Services — core banking</div>
+        <div class="cust-head">
+          <div class="avatar" id="custInitials">—</div>
+          <div>
+            <div class="cust-name" id="custName">Loading…</div>
+            <div class="cust-sub" id="custSub"></div>
+          </div>
+        </div>
+        <span class="verify" id="verifyBadge"><span class="dot"></span> Verifying…</span>
+      </div>
+
+      <hr />
+
+      <div class="kv">
+        <div class="row"><span class="k">Phone</span><span class="v" id="custPhone">—</span></div>
+        <div class="row"><span class="k">Email</span><span class="v" id="custEmail">—</span></div>
+        <div class="row"><span class="k">Address</span><span class="v" id="custAddress">—</span></div>
+        <div class="row"><span class="k">Language</span><span class="v" id="custLang">—</span></div>
+        <div class="row"><span class="k">ID (masked)</span><span class="v" id="custId">—</span></div>
+      </div>
+
+      <hr />
+
+      <div class="chip-source"><span class="pip">•••</span> Contact history</div>
+      <div class="kv">
+        <div class="row"><span class="k">Last contact</span><span class="v" id="lastContact">—</span></div>
+        <div class="row"><span class="k">Channel today</span><span class="v" id="channelToday">—</span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div>
+        <div class="chip-source"><span class="pip">•••</span> Card management platform &nbsp;·&nbsp; card lifecycle</div>
+        <div class="card" style="position:relative;">
+          <div class="timeline" id="timeline" aria-label="Card lifecycle timeline"></div>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Card record sections">
+        <button class="tab" role="tab" id="tab-card" aria-selected="true" aria-controls="panel-card">Card</button>
+        <button class="tab" role="tab" id="tab-tx" aria-selected="false" aria-controls="panel-tx">Transactions</button>
+        <button class="tab" role="tab" id="tab-id" aria-selected="false" aria-controls="panel-id">Identity</button>
+      </div>
+
+      <div class="panel active" id="panel-card" role="tabpanel" aria-labelledby="tab-card">
+        <div class="card">
+          <div class="status-row">
+            <div>
+              <div class="section-title">Card status</div>
+              <span class="status-badge active" id="cardStatusBadge"><span class="dot"></span><span id="cardStatusText">Active</span></span>
+            </div>
+            <button class="btn warn" id="btnFreeze" data-action="freeze">Freeze card</button>
+          </div>
+        </div>
+        <div class="card kv">
+          <div class="row"><span class="k">Card type</span><span class="v">Tieto Banktech Debit Visa</span></div>
+          <div class="row"><span class="k">Card number</span><span class="v" id="cardPan">•••• •••• •••• 4471</span></div>
+          <div class="row"><span class="k">Card reference</span><span class="v">EVCS-2026-778821</span></div>
+          <div class="row"><span class="k">Issued</span><span class="v">12 Jan 2024</span></div>
+          <div class="row"><span class="k">Expiry</span><span class="v">01/28</span></div>
+          <div class="row"><span class="k">Last replaced</span><span class="v">Never</span></div>
+        </div>
+        <div>
+          <div class="section-title" style="margin-bottom:6px;">Limits</div>
+          <div class="limits">
+            <div class="limit-box"><div class="l">Daily spend limit</div><div class="n">NOK 15,000</div></div>
+            <div class="limit-box"><div class="l">Daily ATM limit</div><div class="n">NOK 5,000</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-tx" role="tabpanel" aria-labelledby="tab-tx">
+        <div class="chip-source"><span class="pip">•••</span> Fraud &amp; risk engine &nbsp;·&nbsp; last 5 transactions</div>
+        <div class="card" style="padding:6px 14px 4px;">
+          <table class="tx">
+            <thead><tr><th>Date</th><th>Merchant</th><th>Location</th><th style="text-align:right;">Amount</th></tr></thead>
+            <tbody id="txBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-id" role="tabpanel" aria-labelledby="tab-id">
+        <div class="chip-source"><span class="pip">•••</span> BankID &nbsp;·&nbsp; identity &amp; verification</div>
+        <div class="card">
+          <div class="id-row"><span class="l">BankID verification</span><span class="v" id="idBankIdStatus">Verified · today 09:41</span></div>
+          <div class="id-row"><span class="l">KYC status</span><span class="v">Current · reviewed Mar 2026</span></div>
+          <div class="id-row"><span class="l">National ID (masked)</span><span class="v">140492 *****</span></div>
+        </div>
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="btn" id="btnVerify" data-action="verify">Send verification link (BankID)</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="nba" id="nba">
+    <div class="flag-icon">!</div>
+    <div class="txt" id="nbaText">Card used in <b>Madrid, ES</b> 2 days ago for <b>NOK 2,340.00</b> — not yet confirmed by the customer.</div>
+    <div class="actions">
+      <button class="btn primary" id="btnConfirm" data-action="confirm">Confirm &amp; clear flag</button>
+      <button class="btn" id="btnDispute" data-action="dispute">Log a dispute</button>
+      <button class="dismiss" id="btnDismiss">Ask later</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mousetrap/1.6.5/mousetrap.min.js"></script>
+<script src="https://devpccwidgetapi.blob.core.windows.net/dist/widget-api-lib.min.js"></script>
+<script>
+(function(){
+  const HOST_TIMEOUT = 1500;
+
+  const MOCK = {
+    name: "Ingrid Fossum",
+    initials: "IF",
+    segment: "Retail card customer · 34",
+    phone: "+47 912 34 567",
+    email: "ingrid.fossum@fictivmail.no",
+    address: "Grünerløkka, 0552 Oslo",
+    language: "Norwegian (Bokmål)",
+    idMasked: "140492 *****",
+    lastContact: "14 Aug 2026 · chat",
+    cardRef: "EVCS-2026-778821",
+    lifecycle: [
+      { key:"ordered", label:"Ordered", date:"12 Dec 2023", state:"done" },
+      { key:"issued", label:"Issued", date:"12 Jan 2024", state:"done" },
+      { key:"activated", label:"Activated", date:"15 Jan 2024", state:"done" },
+      { key:"active", label:"Active · today", date:"29 Sep 2026", state:"current", flag:"Intl. use 27 Sep" }
+    ],
+    transactions: [
+      { date:"29 Sep", merchant:"Rema 1000", loc:"Oslo, NO", amount:"NOK 342.50", flagged:false },
+      { date:"28 Sep", merchant:"Vy Tog", loc:"Oslo, NO", amount:"NOK 189.00", flagged:false },
+      { date:"27 Sep", merchant:"Iberia Airlines", loc:"Madrid, ES", amount:"NOK 2,340.00", flagged:true },
+      { date:"25 Sep", merchant:"Netflix", loc:"Online", amount:"NOK 129.00", flagged:false },
+      { date:"23 Sep", merchant:"Kiwi", loc:"Oslo, NO", amount:"NOK 512.30", flagged:false }
+    ]
+  };
+
+  function renderTimeline(){
+    const el = document.getElementById('timeline');
+    el.innerHTML = MOCK.lifecycle.map(step => `
+      <div class="tl-step ${step.state}">
+        <div class="tl-line"></div>
+        <div class="tl-dot"></div>
+        <div class="tl-label">${step.label}</div>
+        <div class="tl-date mono">${step.date}</div>
+        ${step.flag ? `<div class="tl-flag">${step.flag}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function renderTransactions(){
+    const body = document.getElementById('txBody');
+    body.innerHTML = MOCK.transactions.map(tx => `
+      <tr>
+        <td class="mono">${tx.date}</td>
+        <td>${tx.merchant}${tx.flagged ? '<span class="tx-flag">FLAGGED</span>' : ''}</td>
+        <td>${tx.loc}</td>
+        <td class="amt">${tx.amount}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderCustomer(){
+    document.getElementById('custInitials').textContent = MOCK.initials;
+    document.getElementById('custName').textContent = MOCK.name;
+    document.getElementById('custSub').textContent = MOCK.segment;
+    document.getElementById('custPhone').textContent = MOCK.phone;
+    document.getElementById('custEmail').textContent = MOCK.email;
+    document.getElementById('custAddress').textContent = MOCK.address;
+    document.getElementById('custLang').textContent = MOCK.language;
+    document.getElementById('custId').textContent = MOCK.idMasked;
+    document.getElementById('lastContact').textContent = MOCK.lastContact;
+    document.getElementById('topbarRef').textContent = 'CARD REF ' + MOCK.cardRef;
+    const verify = document.getElementById('verifyBadge');
+    verify.innerHTML = '<span class="dot"></span> BankID verified';
+  }
+
+  function renderMock(){
+    renderCustomer();
+    renderTimeline();
+    renderTransactions();
+    document.getElementById('channelToday').textContent = 'Demo mode';
+  }
+
+  function setChannelToday(label){
+    const el = document.getElementById('channelToday');
+    if (el) el.textContent = label;
+  }
+
+  async function hydrateFromApi(api){
+    // In production these auth.* values key the lookup into Evry Card Services'
+    // core banking / card management platform (not shown here — no live
+    // endpoint was in scope for this prototype). We still read them so the
+    // widget can log/associate the interaction correctly.
+    let customerKey = null, userName = null;
+    try { customerKey = await api.get('auth.customerKey'); } catch(e) {}
+    try { userName = await api.get('auth.userName'); } catch(e) {}
+    renderMock(); // no live card/banking backend wired yet; render the same shape
+    if (userName) console.info('[tieto-banktech-widget] agent:', userName, 'customerKey:', customerKey);
+  }
+
+  function wireEvents(api){
+    // Phone and chat are the two channels this account runs, per Cluster 6.
+    api.on('SYSTEM_INCOMING_CALL', () => setChannelToday('Phone'));
+    api.on('SYSTEM_CALL_STATE_CHANGE', () => setChannelToday('Phone'));
+    api.on('SYSTEM_INCOMING_CHAT', () => setChannelToday('Chat'));
+    api.on('SYSTEM_CHAT_STATE_CHANGE', () => setChannelToday('Chat'));
+  }
+
+  function feedback(btn, label, ms){
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = label;
+    if (ms){ setTimeout(() => { btn.disabled = false; btn.textContent = original; }, ms); }
+  }
+
+  function wireActions(api){
+    const call = async (method, ...args) => {
+      if (api && api.call) {
+        try { return await api.call(method, ...args); }
+        catch(e){ console.warn('[tieto-banktech-widget] api.call failed, falling back to local state:', method, e); }
+      }
+      return null; // demo mode / no host method available — handled locally below
+    };
+
+    let frozen = false;
+    document.getElementById('btnFreeze').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      // TODO: confirm the real method name once Evry Card Services exposes a
+      // card-management action through the host or a middleware REST call.
+      await call('cardManagement.setCardStatus', MOCK.cardRef, frozen ? 'ACTIVE' : 'FROZEN');
+      frozen = !frozen;
+      const badge = document.getElementById('cardStatusBadge');
+      const text = document.getElementById('cardStatusText');
+      badge.className = 'status-badge ' + (frozen ? 'frozen' : 'active');
+      text.textContent = frozen ? 'Frozen' : 'Active';
+      btn.textContent = frozen ? 'Unfreeze card' : 'Freeze card';
+    });
+
+    document.getElementById('btnVerify').addEventListener('click', (e) => {
+      call('bankId.sendVerificationLink', MOCK.phone); // TODO: confirm method signature
+      feedback(e.currentTarget, 'Verification link sent', 2500);
+    });
+
+    document.getElementById('btnConfirm').addEventListener('click', () => {
+      const nba = document.getElementById('nba');
+      nba.classList.add('resolved');
+      document.getElementById('nbaText').innerHTML = 'Thanks — the <b>Madrid</b> transaction is confirmed and the flag is cleared.';
+      document.querySelector('.tl-flag')?.remove();
+      nba.querySelectorAll('.actions .btn').forEach(b => b.style.display = 'none');
+    });
+
+    document.getElementById('btnDispute').addEventListener('click', (e) => {
+      call('caseManagement.logDispute', MOCK.cardRef, 'Iberia Airlines · NOK 2,340.00 · 27 Sep'); // TODO: confirm method signature
+      feedback(e.currentTarget, 'Dispute logged', 2500);
+    });
+
+    document.getElementById('btnDismiss').addEventListener('click', () => {
+      document.getElementById('nba').style.display = 'none';
+    });
+  }
+
+  function wireTabs(){
+    const tabs = [
+      ['tab-card','panel-card'],
+      ['tab-tx','panel-tx'],
+      ['tab-id','panel-id']
+    ];
+    tabs.forEach(([tabId, panelId]) => {
+      document.getElementById(tabId).addEventListener('click', () => {
+        tabs.forEach(([tId, pId]) => {
+          document.getElementById(tId).setAttribute('aria-selected', tId === tabId ? 'true' : 'false');
+          document.getElementById(pId).classList.toggle('active', pId === panelId);
+        });
+      });
+    });
+  }
+
+  async function boot(){
+    wireTabs();
+    let api = null;
+    try {
+      api = await Promise.race([
+        widgetApiLib.connect(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('no-host')), HOST_TIMEOUT))
+      ]);
+    } catch (e) {
+      api = null;
+    }
+
+    const widgetRoot = document.querySelector('.widget');
+    if (api) {
+      widgetRoot.dataset.mode = 'live';
+      await hydrateFromApi(api);
+      wireEvents(api);
+      wireActions(api);
+      api.ready();
+    } else {
+      widgetRoot.dataset.mode = 'demo';
+      renderMock();
+      wireActions(null);
+    }
+  }
+
+  window.addEventListener('load', boot);
+})();
+</script>
+</body>
+</html>
