@@ -127,8 +127,15 @@
 
   .kv{ display:flex; flex-direction:column; gap:8px; font-size:13.5px; }
   .kv .row{ display:flex; justify-content:space-between; gap:8px; }
-  .kv .row .k{ color:var(--ink-3); }
-  .kv .row .v{ font-family:'JetBrains Mono',monospace; font-size:13px; text-align:right; }
+  .kv .row .k{ color:var(--ink-3); flex:none; }
+  .kv .row .v{ font-family:'JetBrains Mono',monospace; font-size:13px; text-align:right; overflow-wrap:anywhere; min-width:0; }
+
+  /* The rail is narrow (250px), so its key/value fields stack instead of
+     sitting side by side — keeps long values (email, address) from
+     overflowing or forcing the rail wider than its column. */
+  .rail .kv .row{ flex-direction:column; align-items:flex-start; gap:2px; }
+  .rail .kv .row .k{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+  .rail .kv .row .v{ text-align:left; word-break:break-word; }
 
   .rail hr{ border:none; border-top:1px solid var(--hairline); margin:2px 0; }
 
@@ -238,10 +245,26 @@
     .panel.active{ animation:fadein .12s ease-out; }
   }
   @keyframes fadein{ from{opacity:0} to{opacity:1} }
+
+  /* Standalone demo page only — centres the widget and scales it down to
+     fit a narrower viewport/preview pane. Has no effect once the widget is
+     embedded in the Puzzel Agent Application, where the host controls the
+     frame and the widget renders at its native 800px. */
+  html, body{ margin:0; padding:0; }
+  body{
+    display:flex;
+    justify-content:center;
+    background:#EDEAE2;
+    min-height:100vh;
+    padding:20px 16px;
+  }
+  #stage{ overflow:hidden; }
+  #stage .widget{ transform-origin:top left; }
 </style>
 </head>
 <body>
 
+<div id="stage">
 <div class="widget" aria-label="Tieto Banktech card servicing widget" data-mode="boot">
 
   <div class="topbar">
@@ -356,6 +379,7 @@
       <button class="dismiss" id="btnDismiss">Ask later</button>
     </div>
   </div>
+</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mousetrap/1.6.5/mousetrap.min.js"></script>
@@ -503,6 +527,7 @@
       document.getElementById('nbaText').innerHTML = 'Thanks — the <b>Madrid</b> transaction is confirmed and the flag is cleared.';
       document.querySelector('.tl-flag')?.remove();
       nba.querySelectorAll('.actions .btn').forEach(b => b.style.display = 'none');
+      fitStage();
     });
 
     document.getElementById('btnDispute').addEventListener('click', (e) => {
@@ -512,8 +537,25 @@
 
     document.getElementById('btnDismiss').addEventListener('click', () => {
       document.getElementById('nba').style.display = 'none';
+      fitStage();
     });
   }
+
+  function fitStage(){
+    // Standalone demo page only. Scales the 800px-wide widget down (never
+    // up) so it fits a narrower browser window or preview pane without
+    // horizontal scrolling. The widget's own internal layout stays exactly
+    // 800px, as required when it is embedded in the Agent Application.
+    const stage = document.getElementById('stage');
+    const widget = stage.querySelector('.widget');
+    const natural = 800;
+    const available = Math.max(280, window.innerWidth - 32);
+    const scale = Math.min(1, available / natural);
+    widget.style.transform = 'scale(' + scale + ')';
+    stage.style.width = Math.round(natural * scale) + 'px';
+    stage.style.height = Math.round(widget.offsetHeight * scale) + 'px';
+  }
+  window.addEventListener('resize', fitStage);
 
   function wireTabs(){
     const tabs = [
@@ -527,12 +569,14 @@
           document.getElementById(tId).setAttribute('aria-selected', tId === tabId ? 'true' : 'false');
           document.getElementById(pId).classList.toggle('active', pId === panelId);
         });
+        fitStage(); // tab panels differ in height
       });
     });
   }
 
   async function boot(){
     wireTabs();
+    fitStage();
     let api = null;
     try {
       api = await Promise.race([
@@ -555,6 +599,7 @@
       renderMock();
       wireActions(null);
     }
+    fitStage(); // recompute now the real content height is known
   }
 
   window.addEventListener('load', boot);
